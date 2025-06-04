@@ -7,4 +7,5 @@
 .vscode
 *.bin
 *.elf
-*.map
+*.map 
+
