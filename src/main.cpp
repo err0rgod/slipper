@@ -160,6 +160,42 @@ void handleButton() {
   }
 }
 
+// all functions and attacks are defined here
+
+void scanBLEDevices() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("Scanning BLE...");
+  display.display();
+
+  BLEDevice::init("");
+  BLEScan* pBLEScan = BLEDevice::getScan();
+  pBLEScan->setActiveScan(true);
+  BLEScanResults foundDevices = pBLEScan->start(3, false); // Scan for 3 seconds
+
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("BLE Devices:");
+  int shown = 0;
+  for (int i = 0; i < foundDevices.getCount() && shown < 5; i++) { // Show up to 5 devices
+    BLEAdvertisedDevice d = foundDevices.getDevice(i);
+    String name = d.getName().c_str();
+    if (name.length() == 0) name = d.getAddress().toString().c_str();
+    display.setCursor(0, 12 + shown * 10);
+    display.println(name);
+    shown++;
+  }
+  if (shown == 0) {
+    display.setCursor(0, 12);
+    display.println("None found.");
+  }
+  display.display();
+  delay(2000); // Show results for 2 seconds
+
+  pBLEScan->clearResults();
+}
+
+
 // --- Menu Navigation ---
 void MenuNavigation(int8_t delta) {
   uint8_t count = 0;
@@ -188,10 +224,12 @@ void MenuSelect() {
       }
       break;
     case ScreenState::BLE_MENU:
-      if (selectedIndex == bleMenuCount - 1) { // "Back"
+      if (selectedIndex == 1) { // BLE Scanner
+        scanBLEDevices();
+      } else if (selectedIndex == bleMenuCount - 1) { // "Back"
         changeScreen(ScreenState::MAIN_MENU);
       } else {
-        // Placeholder: perform BLE action
+        // Placeholder for other BLE actions
         display.clearDisplay();
         display.setCursor(0, 0);
         display.print("Selected: ");
