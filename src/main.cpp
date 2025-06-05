@@ -229,9 +229,11 @@ void MenuNavigation(int8_t delta) {
   switch (currentScreen) {
     case ScreenState::MAIN_MENU: count = mainMenuCount; break;
     case ScreenState::BLE_MENU:  count = bleMenuCount;  break;
+    case ScreenState::BLE_SCAN_RESULTS: count = scannedDeviceCount; break;
     // Add other menus here
     default: count = mainMenuCount; break;
   }
+  if (count == 0) return;
   if (delta > 0) {
     selectedIndex = (selectedIndex + 1) % count;
   } else if (delta < 0) {
@@ -263,6 +265,21 @@ void MenuSelect() {
         display.println(bleMenuItems[selectedIndex]);
         display.display();
         delay(800);
+      }
+      break;
+    case ScreenState::BLE_SCAN_RESULTS:
+      if (scannedDeviceCount > 0) {
+        // Device selected, do something with scannedDevices[selectedIndex]
+        display.clearDisplay();
+        display.setCursor(0, 0);
+        display.println("Selected device:");
+        String name = scannedDevices[selectedIndex]->getName().c_str();
+        if (name.length() == 0) name = scannedDevices[selectedIndex]->getAddress().toString().c_str();
+        display.println(name);
+        display.display();
+        delay(1500);
+        // After selection, go back to BLE menu
+        changeScreen(ScreenState::BLE_MENU);
       }
       break;
     // Add other submenu logic here
