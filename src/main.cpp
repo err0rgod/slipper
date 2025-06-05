@@ -166,6 +166,16 @@ void handleButton() {
   }
 }
 
+// --- Free Scanned Devices --- for avoiding memory leaks
+void freeScannedDevices() {
+  for (int i = 0; i < scannedDeviceCount; i++) {
+    delete scannedDevices[i];
+    scannedDevices[i] = nullptr;
+  }
+  scannedDeviceCount = 0;
+}
+
+
 // all functions and attacks are defined here
 void scanBLEDevices() {
   display.clearDisplay();
@@ -188,6 +198,7 @@ void scanBLEDevices() {
 
   changeScreen(ScreenState::BLE_SCAN_RESULTS); // Go to device selection screen
   drawMenu();
+  freeScannedDevices();
 }
 /*void scanBLEDevices() {
   display.clearDisplay();
