@@ -29,8 +29,14 @@ enum class ScreenState {
   WIFI_MENU,
   NFC_MENU,
   SETTINGS_MENU,
+  BLE_SCAN_RESULTS,
   // Add more as needed
 };
+
+#define MAX_BLE_SCAN_RESULTS 5
+BLEAdvertisedDevice* scannedDevices[MAX_BLE_SCAN_RESULTS];
+
+int scannedDeviceCount = 0;
 
 const char* mainMenuItems[] = {
   "BLE Attacks",
@@ -161,8 +167,29 @@ void handleButton() {
 }
 
 // all functions and attacks are defined here
-
 void scanBLEDevices() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("Scanning BLE...");
+  display.display();
+
+  BLEDevice::init("");
+  BLEScan* pBLEScan = BLEDevice::getScan();
+  pBLEScan->setActiveScan(true);
+  BLEScanResults foundDevices = pBLEScan->start(3, false); // Scan for 3 seconds
+
+  // Store pointers to found devices
+  scannedDeviceCount = 0;
+  for (int i = 0; i < foundDevices.getCount() && scannedDeviceCount < MAX_BLE_SCAN_RESULTS; i++) {
+    BLEAdvertisedDevice* d = new BLEAdvertisedDevice(foundDevices.getDevice(i));
+    scannedDevices[scannedDeviceCount++] = d;
+  }
+  pBLEScan->clearResults();
+
+  changeScreen(ScreenState::BLE_SCAN_RESULTS); // Go to device selection screen
+  drawMenu();
+}
+/*void scanBLEDevices() {
   display.clearDisplay();
   display.setCursor(0, 0);
   display.println("Scanning BLE...");
@@ -193,7 +220,7 @@ void scanBLEDevices() {
   delay(2000); // Show results for 2 seconds
 
   pBLEScan->clearResults();
-}
+}*/
 
 
 // --- Menu Navigation ---
@@ -265,6 +292,56 @@ void drawMenu() {
       items = mainMenuItems; count = mainMenuCount; title = "Main Menu"; break;
     case ScreenState::BLE_MENU:
       items = bleMenuItems; count = bleMenuCount; title = "BLE Attacks"; break;
+    case ScreenState::BLE_SCAN_RESULTS:
+      title = "Select Device";
+      count = scannedDeviceCount;
+      break;
+    // Add other menus here
+    default:
+      items = mainMenuItems; count = mainMenuCount; title = "Menu"; break;
+  }
+
+  display.setCursor(0, 0);
+  display.println(title);
+
+  if (currentScreen == ScreenState::BLE_SCAN_RESULTS) {
+    for (uint8_t i = 0; i < count; i++) {
+      display.setCursor(0, 14 + i * 11);
+      if (i == selectedIndex) display.print("> ");
+      else display.print("  ");
+      String name = scannedDevices[i]->getName().c_str();
+      if (name.length() == 0) name = scannedDevices[i]->getAddress().toString().c_str();
+      display.println(name);
+    }
+    if (count == 0) {
+      display.setCursor(0, 14);
+      display.println("None found.");
+    }
+  } else {
+    for (uint8_t i = 0; i < count; i++) {
+      display.setCursor(0, 14 + i * 11);
+      if (i == selectedIndex) display.print("> ");
+      else display.print("  ");
+      display.println(items[i]);
+    }
+  }
+  display.display();
+}
+// Uncomment this to use the drawMenu function of previous versions without BLE scan results
+/*void drawMenu() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+
+  const char** items = nullptr;
+  uint8_t count = 0;
+  const char* title = "";
+
+  switch (currentScreen) {
+    case ScreenState::MAIN_MENU:
+      items = mainMenuItems; count = mainMenuCount; title = "Main Menu"; break;
+    case ScreenState::BLE_MENU:
+      items = bleMenuItems; count = bleMenuCount; title = "BLE Attacks"; break;
     // Add other menus here
     default:
       items = mainMenuItems; count = mainMenuCount; title = "Menu"; break;
@@ -280,4 +357,4 @@ void drawMenu() {
     display.println(items[i]);
   }
   display.display();
-}
+}*/
