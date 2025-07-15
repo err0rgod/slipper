@@ -159,8 +159,11 @@ void beaconFloodLoop()
 
     // Generate random name
     String name = randomName();
-    BLEDevice::setDeviceName(name.c_str());
-    BLEDevice::getAdvertising()->setName(name.c_str());
+
+    //BLEDevice::setDeviceName(name.c_str());
+    // BLEDevice::getAdvertising()->setName(name.c_str());
+    //BLEAdvertisementData advData;
+  
 
     // Prepare advertisement data
     BLEAdvertisementData advData;
