@@ -3,6 +3,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEAdvertising.h>
+#include <esp_bt.h>
 
 // OLED settings
 #define SCREEN_WIDTH 128
@@ -67,6 +70,12 @@ unsigned long lastButtonChange = 0;
 unsigned long buttonPressTime = 0;
 bool buttonLongPressHandled = false;
 
+// --- Beacon Flood Globals ---
+bool beaconFloodActive = false;
+unsigned long lastFloodTime = 0;
+unsigned int floodInterval = 200; // ms, can randomize between 100-500ms
+BLEAdvertising *pAdvertising = nullptr;
+
 // Forward declarations
 void drawMenu();
 void handleEncoder();
@@ -75,6 +84,97 @@ void changeScreen(ScreenState newScreen);
 
 void MenuNavigation(int8_t delta);
 void MenuSelect();
+
+// --- Helper: Generate random MAC address ---
+void randomMac(uint8_t *mac)
+{
+  for (int i = 0; i < 6; i++)
+    mac[i] = random(0, 256);
+  // Set locally administered and unicast bits
+  mac[0] = (mac[0] & 0xFE) | 0x02;
+}
+
+// --- Helper: Generate random device name ---
+String randomName()
+{
+  char buf[12];
+  sprintf(buf, "BLE_%04X", random(0x10000));
+  return String(buf);
+}
+
+// --- Start Beacon Flood ---
+void startBeaconFlood()
+{
+  beaconFloodActive = true;
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("Beacon Flood:");
+  display.println("Active");
+  display.display();
+
+  BLEDevice::deinit(true); // Clean up previous BLE state
+  BLEDevice::init("");     // Re-init BLE
+
+  pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->setScanResponse(false);
+  pAdvertising->setAdvertisementType(ADV_NONCONN_IND);
+  pAdvertising->setMinInterval(0x20); // 20ms
+  pAdvertising->setMaxInterval(0x40); // 40ms
+
+  lastFloodTime = millis();
+}
+
+// --- Stop Beacon Flood ---
+void stopBeaconFlood()
+{
+  beaconFloodActive = false;
+  if (pAdvertising)
+  {
+    pAdvertising->stop();
+    pAdvertising = nullptr;
+  }
+  BLEDevice::deinit(true);
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("Beacon Flood:");
+  display.println("Stopped");
+  display.display();
+}
+
+// --- Call this in loop() ---
+void beaconFloodLoop()
+{
+  if (!beaconFloodActive)
+    return;
+  unsigned long now = millis();
+  if (now - lastFloodTime >= floodInterval)
+  {
+    // Randomize interval for next beacon
+    floodInterval = random(100, 501);
+
+    // Generate random MAC
+    uint8_t mac[6];
+    randomMac(mac);
+    esp_ble_gap_set_rand_addr(mac);
+
+    // Generate random name
+    String name = randomName();
+    BLEDevice::setDeviceName(name.c_str());
+
+    // Prepare advertisement data
+    BLEAdvertisementData advData;
+    advData.setFlags(0x06); // General discoverable, BR/EDR not supported
+    advData.setName(name.c_str());
+
+    pAdvertising->setAdvertisementData(advData);
+    pAdvertising->start();
+    // Stop after a short burst to allow new adv
+    delay(20);
+    pAdvertising->stop();
+
+    lastFloodTime = now;
+  }
+}
 
 void setup()
 {
