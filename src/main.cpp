@@ -206,6 +206,7 @@ void loop()
 {
   handleEncoder();
   handleButton();
+  beaconFloodLoop();
 }
 
 // --- Rotary Encoder Handling ---
@@ -407,7 +408,20 @@ void MenuSelect()
     }
     break;
   case ScreenState::BLE_MENU:
-    if (selectedIndex == 1)
+    if (selectedIndex == 0)
+    { // Beacon Flood
+      startBeaconFlood();
+      // Wait for button press to stop
+      while (digitalRead(ENC_SW) == HIGH)
+      {
+        beaconFloodLoop();
+        delay(10);
+      }
+      stopBeaconFlood();
+      changeScreen(ScreenState::BLE_MENU);
+      drawMenu();
+    }
+    else if (selectedIndex == 1)
     { // BLE Scanner
       scanBLEDevices();
     }
