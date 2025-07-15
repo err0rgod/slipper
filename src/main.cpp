@@ -117,7 +117,7 @@ void startBeaconFlood()
 
   pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->setScanResponse(false);
-  pAdvertising->setAdvertisementType(ADV_NONCONN_IND);
+  pAdvertising->setAdvertisementType(ADV_TYPE_NONCONN_IND);
   pAdvertising->setMinInterval(0x20); // 20ms
   pAdvertising->setMaxInterval(0x40); // 40ms
 
@@ -160,6 +160,7 @@ void beaconFloodLoop()
     // Generate random name
     String name = randomName();
     BLEDevice::setDeviceName(name.c_str());
+    BLEDevice::getAdvertising()->setName(name.c_str());
 
     // Prepare advertisement data
     BLEAdvertisementData advData;
