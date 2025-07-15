@@ -6,6 +6,8 @@
 #include <BLEUtils.h>
 #include <BLEAdvertising.h>
 #include <esp_bt.h>
+#include <vector>
+#include <algorithm>
 
 // OLED settings
 #define SCREEN_WIDTH 128
@@ -160,10 +162,9 @@ void beaconFloodLoop()
     // Generate random name
     String name = randomName();
 
-    //BLEDevice::setDeviceName(name.c_str());
-    // BLEDevice::getAdvertising()->setName(name.c_str());
-    //BLEAdvertisementData advData;
-  
+    // BLEDevice::setDeviceName(name.c_str());
+    //  BLEDevice::getAdvertising()->setName(name.c_str());
+    // BLEAdvertisementData advData;
 
     // Prepare advertisement data
     BLEAdvertisementData advData;
@@ -303,27 +304,84 @@ void scanBLEDevices()
 {
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.println("Scanning BLE...");
+  display.println("BLE Scan...");
   display.display();
 
   BLEDevice::init("");
   BLEScan *pBLEScan = BLEDevice::getScan();
   pBLEScan->setActiveScan(true);
-  BLEScanResults foundDevices = pBLEScan->start(3, false); // Scan for 3 seconds
 
-  // Store pointers to found devices
-  scannedDeviceCount = 0;
-  for (int i = 0; i < foundDevices.getCount() && scannedDeviceCount < MAX_BLE_SCAN_RESULTS; i++)
+  while (true)
   {
-    BLEAdvertisedDevice *d = new BLEAdvertisedDevice(foundDevices.getDevice(i));
-    scannedDevices[scannedDeviceCount++] = d;
-  }
-  pBLEScan->clearResults();
+    BLEScanResults foundDevices = pBLEScan->start(5, false); // Scan for 5 seconds
 
-  changeScreen(ScreenState::BLE_SCAN_RESULTS); // Go to device selection screen
-  drawMenu();
-  freeScannedDevices();
+    // Collect devices
+    int count = foundDevices.getCount();
+    struct DeviceInfo
+    {
+      String name;
+      String mac;
+      int rssi;
+    };
+    std::vector<DeviceInfo> devices;
+
+    for (int i = 0; i < count; i++)
+    {
+      BLEAdvertisedDevice d = foundDevices.getDevice(i);
+      String name = d.getName().c_str();
+      if (name.length() == 0)
+        name = "(no name)";
+      String mac = d.getAddress().toString().c_str();
+      int rssi = d.getRSSI();
+      devices.push_back({name, mac, rssi});
+      // Print to Serial
+      Serial.printf("Name: %s, MAC: %s, RSSI: %d\n", name.c_str(), mac.c_str(), rssi);
+    }
+
+    // Sort by RSSI descending
+    std::sort(devices.begin(), devices.end(), [](const DeviceInfo &a, const DeviceInfo &b)
+              { return a.rssi > b.rssi; });
+
+    // Draw top 3 on OLED
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.println("Top BLE Devices:");
+    for (int i = 0; i < devices.size() && i < 3; i++)
+    {
+      display.setCursor(0, 12 + i * 17);
+      display.printf("%s", devices[i].name.c_str());
+      display.setCursor(0, 12 + i * 17 + 8);
+      display.printf("%s", devices[i].mac.c_str());
+      display.setCursor(90, 12 + i * 17 + 8);
+      display.printf("%d", devices[i].rssi);
+    }
+    if (devices.size() == 0)
+    {
+      display.setCursor(0, 14);
+      display.println("None found.");
+    }
+    display.display();
+
+    pBLEScan->clearResults();
+
+    // Wait for 1s before next scan, or break if user presses encoder button
+    for (int i = 0; i < 10; i++)
+    {
+      if (digitalRead(ENC_SW) == LOW)
+      {
+        display.clearDisplay();
+        display.setCursor(0, 0);
+        display.println("Scan stopped.");
+        display.display();
+        delay(1000);
+        BLEDevice::deinit(true);
+        return;
+      }
+      delay(100);
+    }
+  }
 }
+
 /*void scanBLEDevices() {
   display.clearDisplay();
   display.setCursor(0, 0);
